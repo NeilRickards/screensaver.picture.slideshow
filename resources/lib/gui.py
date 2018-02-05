@@ -25,7 +25,7 @@ import json
 ADDON    = sys.modules[ '__main__' ].ADDON
 ADDONID  = sys.modules[ '__main__' ].ADDONID
 CWD      = sys.modules[ '__main__' ].CWD
-SKINDIR  = xbmc.getSkinDir().decode('utf-8')
+SKINDIR  = xbmc.getSkinDir()
 
 # images types that can contain exif/iptc data
 EXIF_TYPES  = ('.jpg', '.jpeg', '.tif', '.tiff')
@@ -172,7 +172,7 @@ class Screensaver(xbmcgui.WindowXMLDialog):
                         try:
                             exiftags = EXIFvfs.process_file(imgfile, details=False, stop_tag='DateTimeOriginal')
                             if exiftags.has_key('EXIF DateTimeOriginal'):
-                                datetime = str(exiftags['EXIF DateTimeOriginal']).decode('utf-8')
+                                datetime = str(exiftags['EXIF DateTimeOriginal'])
                                 # sometimes exif date returns useless data, probably no date set on camera
                                 if datetime == '0000:00:00 00:00:00':
                                     datetime = ''
@@ -198,13 +198,13 @@ class Screensaver(xbmcgui.WindowXMLDialog):
                             iptc = IPTCInfo(imgfile)
                             iptctags = iptc.data
                             if iptctags.has_key(105):
-                                title = iptctags[105].decode('utf-8')
+                                title = iptctags[105]
                                 iptc_ti = True
                             if iptctags.has_key(120):
-                                description = iptctags[120].decode('utf-8')
+                                description = iptctags[120]
                                 iptc_de = True
                             if iptctags.has_key(25):
-                                keywords = ', '.join(iptctags[25]).decode('utf-8')
+                                keywords = ', '.join(iptctags[25])
                                 iptc_ke = True
                         except:
                             pass
@@ -390,16 +390,15 @@ class Screensaver(xbmcgui.WindowXMLDialog):
     def _get_animspeed(self):
         # find the skindir
         json_query = xbmc.executeJSONRPC('{"jsonrpc": "2.0", "method": "Addons.GetAddonDetails", "params": {"addonid": "%s", "properties": ["path"]}, "id": 1}' % SKINDIR)
-        json_query = unicode(json_query, 'utf-8', errors='ignore')
         json_response = json.loads(json_query)
-        if json_response.has_key('result') and (json_response['result'] != None) and json_response['result'].has_key('addon') and json_response['result']['addon'].has_key('path'):
+        if 'result' in json_response and (json_response['result'] != None) and 'addon' in json_response['result'] and 'path' in json_response['result']['addon']:
             skinpath = json_response['result']['addon']['path']
         else:
             log('failed to retrieve skin path')
             log(SKINDIR)
             log(json_query)
             return
-        skinxml = xbmc.translatePath( os.path.join( skinpath, 'addon.xml' ).encode('utf-8') ).decode('utf-8')
+        skinxml = xbmc.translatePath(os.path.join(skinpath, 'addon.xml'))
         try:
             # parse the skin addon.xml
             self.xml = parse(skinxml)
