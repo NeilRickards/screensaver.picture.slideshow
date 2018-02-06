@@ -15,9 +15,8 @@
 
 import random, copy, threading
 import xbmcgui, xbmcaddon
-import EXIFvfs
+import exifreadvfs
 from iptcinfovfs import IPTCInfo
-from XMPvfs import XMP_Tags
 from xml.dom.minidom import parse
 from utils import *
 import json
@@ -170,8 +169,8 @@ class Screensaver(xbmcgui.WindowXMLDialog):
                     # get exif date
                     if self.slideshow_date == 'true':
                         try:
-                            exiftags = EXIFvfs.process_file(imgfile, details=False, stop_tag='DateTimeOriginal')
-                            if exiftags.has_key('EXIF DateTimeOriginal'):
+                            exiftags = exifread.process_file(imgfile, details=False, stop_tag='DateTimeOriginal')
+                            if 'EXIF DateTimeOriginal' in exiftags:
                                 datetime = str(exiftags['EXIF DateTimeOriginal'])
                                 # sometimes exif date returns useless data, probably no date set on camera
                                 if datetime == '0000:00:00 00:00:00':
@@ -197,27 +196,34 @@ class Screensaver(xbmcgui.WindowXMLDialog):
                         try:
                             iptc = IPTCInfo(imgfile)
                             iptctags = iptc.data
-                            if iptctags.has_key(105):
+                            if 105 in iptctags:
                                 title = iptctags[105]
                                 iptc_ti = True
-                            if iptctags.has_key(120):
+                            if 120 in iptctags:
                                 description = iptctags[120]
                                 iptc_de = True
-                            if iptctags.has_key(25):
+                            if 25 in iptctags:
                                 keywords = ', '.join(iptctags[25])
                                 iptc_ke = True
                         except:
                             pass
                         if (not iptc_ti or not iptc_de or not iptc_ke):
                             try:
-                                tags = XMP_Tags().get_xmp(img[0]) # passing the imgfile object does not work for some reason
-                                if (not iptc_ti) and tags.has_key('dc:title'):
+                                raw = imgfile.readBytes()
+                                data = "".join(map(chr, raw))
+                                xmp_start = data.find('<x:xmpmeta')
+                                xmp_end = data.find('</x:xmpmeta')
+                                xmp_str = data[xmp_start:xmp_end+12]
+#TODO
+                                tags = {}
+#TODO
+                                if (not iptc_ti) and 'dc:title' in tags:
                                     title = tags['dc:title']
                                     iptc_ti = True
-                                if (not iptc_de) and tags.has_key('dc:description'):
+                                if (not iptc_de) and 'dc:description' in tags:
                                     description = tags['dc:description']
                                     iptc_de = True
-                                if (not iptc_ke) and tags.has_key('dc:subject'):
+                                if (not iptc_ke) and 'dc:subject' in tags:
                                     keywords = tags['dc:subject'].replace('||',', ')
                                     iptc_ke = True
                             except:
@@ -231,9 +237,7 @@ class Screensaver(xbmcgui.WindowXMLDialog):
                     self.datelabel.setVisible(False)
                 # display iptc data if we have any
                 if iptc_ti or iptc_de or iptc_ke:
-                    self.textbox.setText(
-                        '[CR]'.join([title, keywords] if title == description
-                                    else [title, description, keywords]))
+                    self.textbox.setText('[CR]'.join([title, keywords] if title == description else [title, description, keywords]))
                     self.textbox.setVisible(True)
                 else:
                     self.textbox.setVisible(False)
@@ -297,7 +301,7 @@ class Screensaver(xbmcgui.WindowXMLDialog):
         log('slideshow type: %s' % self.slideshow_type)
 	    # check if we have an image folder, else fallback to video fanart
         if self.slideshow_type == '2':
-            hexfile = checksum(self.slideshow_path) # check if path has changed, so we can create a new cache at startup
+            hexfile = checksum(self.slideshow_path.encode('utf-8')) # check if path has changed, so we can create a new cache at startup
             log('image path: %s' % self.slideshow_path)
             log('update: %s' % update)
             if (not xbmcvfs.exists(CACHEFILE % hexfile)) or update: # create a new cache if no cache exits or during the background scan
@@ -321,9 +325,8 @@ class Screensaver(xbmcgui.WindowXMLDialog):
             self.items = []
             for method in methods:
                 json_query = xbmc.executeJSONRPC('{"jsonrpc": "2.0", "method": "' + method[0] + '", "params": {"properties": ["fanart"]}, "id": 1}')
-                json_query = unicode(json_query, 'utf-8', errors='ignore')
                 json_response = json.loads(json_query)
-                if json_response.has_key('result') and json_response['result'] != None and json_response['result'].has_key(method[1]):
+                if 'result' in json_response and json_response['result'] != None and method[1] in json_response['result']:
                     for item in json_response['result'][method[1]]:
                         if item['fanart']:
                             self.items.append([item['fanart'], item['label']])

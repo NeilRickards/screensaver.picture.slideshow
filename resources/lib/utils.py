@@ -14,7 +14,7 @@ RESUMEFILE  = os.path.join(CACHEFOLDER, 'offset')
 ASFILE      = xbmc.translatePath('special://profile/advancedsettings.xml')
 
 def log(txt):
-    message = u'%s: %s' % (ADDONID, txt)
+    message = '%s: %s' % (ADDONID, txt)
     xbmc.log(msg=message, level=xbmc.LOGDEBUG)
 
 def checksum(path):
