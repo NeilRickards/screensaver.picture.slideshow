@@ -13,8 +13,12 @@
 # *  the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
 # *  http://www.gnu.org/copyleft/gpl.html
 
-import random, copy, threading
-import xbmcgui, xbmcaddon
+import re
+import random
+import copy
+import threading
+import xbmcgui
+import xbmcaddon
 import exifreadvfs
 from iptcinfovfs import IPTCInfo
 from xml.dom.minidom import parse
@@ -165,13 +169,14 @@ class Screensaver(xbmcgui.WindowXMLDialog):
                 iptc_de = False
                 iptc_ke = False
                 if self.slideshow_type == '2' and ((self.slideshow_date == 'true') or (self.slideshow_iptc == 'true')) and (os.path.splitext(img[0])[1].lower() in EXIF_TYPES):
-                    imgfile = xbmcvfs.File(img[0])
                     # get exif date
                     if self.slideshow_date == 'true':
+                        exiffile = xbmcvfs.File(img[0])
                         try:
-                            exiftags = exifread.process_file(imgfile, details=False, stop_tag='DateTimeOriginal')
+                            exiftags = exifreadvfs.process_file(exiffile, details=False, stop_tag='DateTimeOriginal')
                             if 'EXIF DateTimeOriginal' in exiftags:
-                                datetime = str(exiftags['EXIF DateTimeOriginal'])
+                                # how to get data from a bytearray?
+                                datetime = str(exiftags['EXIF DateTimeOriginal'])[12:-2]
                                 # sometimes exif date returns useless data, probably no date set on camera
                                 if datetime == '0000:00:00 00:00:00':
                                     datetime = ''
@@ -191,44 +196,54 @@ class Screensaver(xbmcgui.WindowXMLDialog):
                                     exif = True
                         except:
                             pass
+                        exiffile.close()
                     # get iptc title, description and keywords
                     if self.slideshow_iptc == 'true':
+                        iptcfile = xbmcvfs.File(img[0])
                         try:
-                            iptc = IPTCInfo(imgfile)
+                            iptc = IPTCInfo(iptcfile)
                             iptctags = iptc.data
-                            if 105 in iptctags:
-                                title = iptctags[105]
+                            if 105 in iptctags and iptctags[105]:
+                                # how to get data from a bytearray?
+                                title = str(iptctags[105])[12:-2]
                                 iptc_ti = True
-                            if 120 in iptctags:
-                                description = iptctags[120]
+                            if 120 in iptctags and iptctags[120]:
+                                # how to get data from a bytearray?
+                                description = str(iptctags[120])[12:-2]
                                 iptc_de = True
-                            if 25 in iptctags:
-                                keywords = ', '.join(iptctags[25])
+                            if 25 in iptctags and iptctags[25]:
+                                tags = []
+                                for tag in iptctags[25]:
+                                    # how to get data from a bytearray?
+                                    tags.append(str(tag)[12:-2])
+                                keywords = ', '.join(tags)
                                 iptc_ke = True
                         except:
                             pass
+                        iptcfile.close()
+                        # get xmp title, description and subject
                         if (not iptc_ti or not iptc_de or not iptc_ke):
                             try:
-                                raw = imgfile.readBytes()
-                                data = "".join(map(chr, raw))
-                                xmp_start = data.find('<x:xmpmeta')
-                                xmp_end = data.find('</x:xmpmeta')
-                                xmp_str = data[xmp_start:xmp_end+12]
-#TODO
-                                tags = {}
-#TODO
-                                if (not iptc_ti) and 'dc:title' in tags:
-                                    title = tags['dc:title']
+                                # why do i need to recreate the file object?
+                                xmpfile = xbmcvfs.File(img[0])
+                                data = xmpfile.readBytes().decode('cp437')
+                                titlematch = re.search(r'<dc:title.*?rdf:Alt.*?rdf:li.*?>(.*?)<', data, flags=re.DOTALL)
+                                if titlematch and not iptc_ti:
+                                    title = titlematch.group(1)
                                     iptc_ti = True
-                                if (not iptc_de) and 'dc:description' in tags:
-                                    description = tags['dc:description']
+                                descmatch = re.search(r'<dc:description.*?rdf:Alt.*?rdf:li.*?>(.*?)<', data, flags=re.DOTALL)
+                                if descmatch and not iptc_de:
+                                    description = descmatch.group(1)
                                     iptc_de = True
-                                if (not iptc_ke) and 'dc:subject' in tags:
-                                    keywords = tags['dc:subject'].replace('||',', ')
+                                subjmatch = re.search(r'<dc:subject.*?rdf:Bag.*?>(.*?)</rdf:Bag', data, flags=re.DOTALL)
+                                if subjmatch and not iptc_ke:
+                                    subjectpart = ''.join(subjmatch.group(1).split())
+                                    subjectgroup = subjectpart.replace('<rdf:li>','').split('</rdf:li>')
+                                    keywords = ' '.join(subjectgroup)
                                     iptc_ke = True
                             except:
                                 pass
-                    imgfile.close()
+                            xmpfile.close()
                 # display exif date if we have one
                 if exif:
                     self.datelabel.setLabel('[I]' + datetime + '[/I]')
