@@ -175,8 +175,7 @@ class Screensaver(xbmcgui.WindowXMLDialog):
                         try:
                             exiftags = exifreadvfs.process_file(exiffile, details=False, stop_tag='DateTimeOriginal')
                             if 'EXIF DateTimeOriginal' in exiftags:
-                                # how to get data from a bytearray?
-                                datetime = str(exiftags['EXIF DateTimeOriginal'])[12:-2]
+                                datetime = bytes(exiftags['EXIF DateTimeOriginal'].values).decode('utf-8')
                                 # sometimes exif date returns useless data, probably no date set on camera
                                 if datetime == '0000:00:00 00:00:00':
                                     datetime = ''
@@ -202,20 +201,16 @@ class Screensaver(xbmcgui.WindowXMLDialog):
                         iptcfile = xbmcvfs.File(img[0])
                         try:
                             iptc = IPTCInfo(iptcfile)
-                            iptctags = iptc.data
-                            if 105 in iptctags and iptctags[105]:
-                                # how to get data from a bytearray?
-                                title = str(iptctags[105])[12:-2]
+                            if 105 in iptc.data and iptc.data[105]:
+                                title = bytes(iptc.data[105]).decode('utf-8')
                                 iptc_ti = True
-                            if 120 in iptctags and iptctags[120]:
-                                # how to get data from a bytearray?
-                                description = str(iptctags[120])[12:-2]
+                            if 120 in iptc.data and iptc.data[120]:
+                                description = bytes(iptc.data[120]).decode('utf-8')
                                 iptc_de = True
-                            if 25 in iptctags and iptctags[25]:
+                            if 25 in iptc.data and iptc.data[25]:
                                 tags = []
-                                for tag in iptctags[25]:
-                                    # how to get data from a bytearray?
-                                    tags.append(str(tag)[12:-2])
+                                for tag in iptc.data[25]:
+                                    tags.append(bytes(tag).decode('utf-8'))
                                 keywords = ', '.join(tags)
                                 iptc_ke = True
                         except:
