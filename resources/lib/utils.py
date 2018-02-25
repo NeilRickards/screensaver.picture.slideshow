@@ -41,18 +41,16 @@ def create_cache(path, hexfile):
             log('failed to save cachefile')
 
 def get_excludes():
-    regexes = []
     if xbmcvfs.exists(ASFILE):
         try:
             tree = etree.parse(ASFILE)
             root = tree.getroot()
             excludes = root.find('pictureexcludes')
-            if excludes is not None:
-                for expr in excludes:
-                    regexes.append(expr.text)
-        except:
-            pass
-    return regexes
+            if excludes:
+                return [re.compile(expr.text) for expr in excludes]
+        except Exception as e:
+            log('exception while processing %s: %s' % (ASFILE, e))
+    return []
 
 def walk(path):
     images = []
@@ -78,30 +76,16 @@ def walk(path):
             files.sort(key=alphanum_key)
             for item in files:
                 #check pictureexcludes from as.xml
-                fileskip = False
-                if excludes:
-                    for string in excludes:
-                        regex = re.compile(string)
-                        match = regex.search(item)
-                        if match:
-                            fileskip = True
-                            break
+                if any(regex.search(item) for regex in excludes):
+                    continue
                 # filter out all images
-                if os.path.splitext(item)[1].lower() in IMAGE_TYPES and not fileskip:
+                if os.path.splitext(item)[1].lower() in IMAGE_TYPES:
                     images.append([os.path.join(folder,item), ''])
             for item in dirs:
                 #check pictureexcludes from as.xml
-                dirskip = False
-                if excludes:
-                    for string in excludes:
-                        regex = re.compile(string)
-                        match = regex.search(item)
-                        if match:
-                            dirskip = True
-                            break
-                # recursively scan all subfolders
-                if not dirskip:
+                if not any(regex.search(item) for regex in excludes):
+                    # recursively scan all subfolders
                     images += walk(os.path.join(folder,item,'')) # make sure paths end with a slash
         else:
-            log('folder does not exist')
+            log('folder %s does not exist' % folder)
     return images
